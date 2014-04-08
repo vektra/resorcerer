@@ -55,10 +55,6 @@ func RunLoop(u *upstart.Conn, c *Config) error {
 
 		s.action = j
 
-		for _, h := range s.Handlers {
-			e.Add(s, h.Event, h)
-		}
-
 		e.Dispatch(&Event{"monitor/start", s, nil})
 
 		w := &Work{

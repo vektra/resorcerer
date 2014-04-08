@@ -9,7 +9,7 @@ email:
 services:
   - name: ssh
     memory: 100Mb
-    on:
-      - event: memory/limit
-        email:
-          address: evan@phx.io
+on:
+  - event: memory/limit
+    email:
+      address: evan@phx.io

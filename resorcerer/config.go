@@ -72,6 +72,7 @@ type Config struct {
 	Poll     PollSettings  `yaml:"poll"`
 	Email    EmailSettings `yaml:"email"`
 	Services []*Service    `yaml:"services"`
+	Handlers []*Handler    `yaml:"on"`
 }
 
 func LoadConfig(path string) (*Config, error) {

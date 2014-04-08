@@ -14,6 +14,7 @@ type Event struct {
 
 type EventDispatcher struct {
 	Registry map[*Service]map[string][]*Handler
+	Global   map[string][]*Handler
 	Actions  []Action
 	Debug    bool
 }
@@ -21,6 +22,7 @@ type EventDispatcher struct {
 func NewEventDispatcher(c *Config) *EventDispatcher {
 	ev := &EventDispatcher{
 		Registry: make(map[*Service]map[string][]*Handler),
+		Global:   make(map[string][]*Handler),
 	}
 
 	ev.Actions = []Action{
@@ -28,17 +30,27 @@ func NewEventDispatcher(c *Config) *EventDispatcher {
 		&emailAction{&c.Email},
 	}
 
+	for _, s := range c.Services {
+		for _, h := range s.Handlers {
+			ev.Add(s, h)
+		}
+	}
+
+	for _, h := range c.Handlers {
+		ev.Global[h.Event] = append(ev.Global[h.Event], h)
+	}
+
 	return ev
 }
 
-func (e *EventDispatcher) Add(s *Service, name string, h *Handler) {
+func (e *EventDispatcher) Add(s *Service, h *Handler) {
 	p := e.Registry[s]
 	if p == nil {
 		p = make(map[string][]*Handler)
 		e.Registry[s] = p
 	}
 
-	p[name] = append(p[name], h)
+	p[h.Event] = append(p[h.Event], h)
 }
 
 func (e *EventDispatcher) Dispatch(ev *Event) error {
@@ -48,24 +60,27 @@ func (e *EventDispatcher) Dispatch(ev *Event) error {
 
 	parts := strings.Split(ev.Name, "/")
 
-	s, ok := e.Registry[ev.Service]
-	if !ok {
-		return nil
+	regs := []map[string][]*Handler{e.Global}
+
+	if s, ok := e.Registry[ev.Service]; ok {
+		regs = append(regs, s)
 	}
 
-	cur := ""
+	for _, s := range regs {
+		cur := ""
 
-	for _, part := range parts {
-		if cur == "" {
-			cur = part
-		} else {
-			cur = cur + "/" + part
-		}
+		for _, part := range parts {
+			if cur == "" {
+				cur = part
+			} else {
+				cur = cur + "/" + part
+			}
 
-		if h, ok := s[cur]; ok {
-			err := e.Process(ev, h)
-			if err != nil {
-				return err
+			if h, ok := s[cur]; ok {
+				err := e.Process(ev, h)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
