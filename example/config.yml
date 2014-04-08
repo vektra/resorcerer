@@ -1,0 +1,15 @@
+---
+mode: upstart
+
+email:
+  server: smtp.gmail.com:587
+  username: evan@phx.io
+  password: tmwtbct*
+
+services:
+  - name: ssh
+    memory: 100Mb
+    on:
+      - event: memory/limit
+        email:
+          address: evan@phx.io

@@ -53,6 +53,11 @@ func (p Pid) Info() (*Info, error) {
 		i.ProcessGrp = n
 	}
 
+	data, err = ioutil.ReadFile(fmt.Sprintf("/proc/%d/cmdline", p))
+	if err == nil {
+		i.CmdLine = strings.TrimSpace(string(bytes.Join(bytes.Split(data, []byte{0}), []byte(" "))))
+	}
+
 	// Get the memory stats from status because, weirdly, they're better.
 	// This is what `ps` does too.
 

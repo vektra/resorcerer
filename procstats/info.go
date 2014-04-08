@@ -18,4 +18,5 @@ type Info struct {
 	ProcessGrp int
 	VirtMem    Bytes
 	RSS        Bytes
+	CmdLine    string
 }

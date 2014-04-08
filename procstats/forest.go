@@ -8,11 +8,31 @@ import (
 
 type GroupStats struct {
 	Process  *Info
-	ChildRSS Bytes
+	Children []*GroupStats
+}
+
+func (g *GroupStats) ChildRSS() Bytes {
+	var total Bytes
+
+	for _, c := range g.Children {
+		total += c.TotalRSS()
+	}
+
+	return total
 }
 
 func (g *GroupStats) TotalRSS() Bytes {
-	return g.Process.RSS + g.ChildRSS
+	return g.Process.RSS + g.ChildRSS()
+}
+
+func (g *GroupStats) NumChildren() int {
+	count := len(g.Children)
+
+	for _, c := range g.Children {
+		count += c.NumChildren()
+	}
+
+	return count
 }
 
 type Forest struct {
@@ -52,7 +72,7 @@ func DiscoverForest() (*Forest, error) {
 
 	for _, info := range f.Processes {
 		if parent, ok := f.Processes[info.Process.ParentPid]; ok {
-			parent.ChildRSS += info.Process.RSS
+			parent.Children = append(parent.Children, info)
 		}
 	}
 
