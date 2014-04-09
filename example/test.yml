@@ -1,0 +1,8 @@
+---
+mode: upstart
+services:
+  - name: big
+    memory: 5Mb
+    on:
+      - event: memory/limit
+        process: restart

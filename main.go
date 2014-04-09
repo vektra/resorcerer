@@ -59,7 +59,10 @@ func listProcesses() {
 }
 
 func main() {
-	rest, err := flags.Parse(&options)
+	parser := flags.NewParser(&options, flags.Default)
+	parser.Usage = "[OPTIONS] config.yml"
+
+	rest, err := parser.Parse()
 	if err != nil {
 		if se, ok := err.(*flags.Error); ok && se.Type != flags.ErrHelp {
 			fmt.Fprintf(os.Stderr, "Error parsing options: %s\n", err)
