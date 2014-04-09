@@ -33,13 +33,20 @@ func (m MemoryAmount) Bytes() (int, error) {
 		return n, nil
 	}
 
-	if strings.ToLower(s[len(s)-2:len(s)]) == "mb" {
-		n, err := strconv.Atoi(strings.TrimSpace(s[0 : len(s)-2]))
-		if err != nil {
-			return 0, err
-		}
+	suffix := strings.ToLower(s[len(s)-2 : len(s)])
 
+	n, err = strconv.Atoi(strings.TrimSpace(s[0 : len(s)-2]))
+	if err != nil {
+		return 0, err
+	}
+
+	switch suffix {
+	case "gb":
+		return n * (1024 * 1024 * 1024), nil
+	case "mb":
 		return n * (1024 * 1024), nil
+	case "kb":
+		return n * 1024, nil
 	}
 
 	return 0, fmt.Errorf("Unsupported memory ammount '%s'", m)
