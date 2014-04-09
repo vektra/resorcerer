@@ -5,6 +5,8 @@ import (
 	"github.com/vektra/resorcerer/procstats"
 	"github.com/vektra/resorcerer/upstart"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -14,6 +16,8 @@ type Work struct {
 	srv       *Service
 	memMetric *Metric
 }
+
+var ErrReload = fmt.Errorf("Reload configuration")
 
 var Debug bool = false
 
@@ -32,6 +36,9 @@ func RunLoop(u *upstart.Conn, c *Config) error {
 	if c.Poll.Significant == 0 {
 		c.Poll.Significant = (c.Poll.Samples / 2) + 1
 	}
+
+	sig := make(chan os.Signal)
+	signal.Notify(sig, syscall.SIGHUP)
 
 	e := NewEventDispatcher(c)
 
@@ -103,12 +110,16 @@ func RunLoop(u *upstart.Conn, c *Config) error {
 				rss := gs.TotalRSS()
 				e.Dispatch(&Event{"memory/measured", w.srv, rss})
 				w.memMetric.Add(e, rss)
-			} else {
-				fmt.Fprintf(os.Stderr, "Unable to find stats for pid %d\n", pid)
 			}
 		}
 
-		time.Sleep(time.Duration(c.Poll.Seconds) * time.Second)
+		select {
+		case <-sig:
+			signal.Stop(sig)
+			return ErrReload
+		case <-time.After(time.Duration(c.Poll.Seconds) * time.Second):
+			continue
+		}
 	}
 
 	return nil

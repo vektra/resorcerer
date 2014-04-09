@@ -1,7 +1,6 @@
 package procstats
 
 import (
-	"fmt"
 	"io/ioutil"
 	"strconv"
 )
@@ -63,7 +62,6 @@ func DiscoverForest() (*Forest, error) {
 
 		info, err := pid.Info()
 		if err != nil {
-			fmt.Printf("Unable to load %d, %s\n", n, err)
 			continue
 		}
 

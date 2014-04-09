@@ -61,9 +61,12 @@ func (p Pid) Info() (*Info, error) {
 	// Get the memory stats from status because, weirdly, they're better.
 	// This is what `ps` does too.
 
-	data, err = ioutil.ReadFile(fmt.Sprintf("/proc/%d/status", p))
-
 	var fin int
+
+	data, err = ioutil.ReadFile(fmt.Sprintf("/proc/%d/status", p))
+	if err != nil {
+		goto Done
+	}
 
 	idx = bytes.Index(data, []byte("VmSize:"))
 	if idx == -1 {

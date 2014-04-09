@@ -71,25 +71,30 @@ func main() {
 		fmt.Printf("Loading config: %s\n", rest[0])
 	}
 
-	c, err := resorcerer.LoadConfig(rest[0])
-	if err != nil {
-		fmt.Printf("Unable to load config: %s\n", err)
-		os.Exit(1)
-	}
-
-	if c.Mode != "upstart" {
-		fmt.Printf("Unsupported mode '%s'\n", c.Mode)
-		os.Exit(1)
-	}
-
-	u, err := upstart.Dial()
-	if err != nil {
-		fmt.Printf("Unable to connect to Upstart: %s\n", err)
-		os.Exit(1)
-	}
-
 	resorcerer.Debug = options.Debug
 	resorcerer.DryRun = options.DryRun
 
-	resorcerer.RunLoop(u, c)
+	for {
+		c, err := resorcerer.LoadConfig(rest[0])
+		if err != nil {
+			fmt.Printf("Unable to load config: %s\n", err)
+			os.Exit(1)
+		}
+
+		if c.Mode != "upstart" {
+			fmt.Printf("Unsupported mode '%s'\n", c.Mode)
+			os.Exit(1)
+		}
+
+		u, err := upstart.Dial()
+		if err != nil {
+			fmt.Printf("Unable to connect to Upstart: %s\n", err)
+			os.Exit(1)
+		}
+
+		if resorcerer.RunLoop(u, c) == resorcerer.ErrReload {
+			fmt.Fprint(os.Stderr, "! Reloading configuration\n")
+			continue
+		}
+	}
 }
