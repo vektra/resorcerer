@@ -15,13 +15,6 @@ type Work struct {
 	memMetric *Metric
 }
 
-func show(gs *procstats.GroupStats) {
-	fmt.Printf("%d: %d (%d) - %s\n", gs.Process.Pid, gs.Process.RSS, gs.TotalRSS(), gs.Process.CmdLine)
-	for _, x := range gs.Children {
-		show(x)
-	}
-}
-
 var Debug bool = false
 
 const defaultPollSeconds = 5
@@ -41,7 +34,6 @@ func RunLoop(u *upstart.Conn, c *Config) error {
 	}
 
 	e := NewEventDispatcher(c)
-	e.Debug = Debug
 
 	sm := make(ServiceMetrics)
 
@@ -92,16 +84,17 @@ func RunLoop(u *upstart.Conn, c *Config) error {
 
 				w.pid = -1
 
-				e.Dispatch(&Event{"monitoring/down", w.srv, nil})
+				e.Dispatch(&Event{"monitor/down", w.srv, nil})
 				continue
 			}
 
 			pid := procstats.Pid(rpid)
 
 			if w.pid == -1 {
-				e.Dispatch(&Event{"monitoring/up", w.srv, nil})
+				e.Dispatch(&Event{"monitor/up", w.srv, nil})
 			} else if w.pid != pid {
-				e.Dispatch(&Event{"monitoring/pid-change", w.srv, pid})
+				e.Dispatch(&Event{"monitor/pid-change", w.srv, pid})
+				w.memMetric.Reset()
 			}
 
 			w.pid = pid

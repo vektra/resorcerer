@@ -3,13 +3,19 @@ mode: upstart
 
 email:
   server: smtp.gmail.com:587
-  username: evan@phx.io
-  password: tmwtbct*
+  username: blah@vektra.io
+  password: foobar
 
 services:
-  - name: ssh
-    memory: 100Mb
+  - name: unicorn
+    memory: 1000Mb
+
+  - name: sidekiq
+    memory: 500Mb
+    on:
+      - event: memory/limit
+        webhook: https://stats.vektra.io/import
+
 on:
   - event: memory/limit
-    email:
-      address: evan@phx.io
+    process: restart

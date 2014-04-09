@@ -1,6 +1,7 @@
 package resorcerer
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -12,11 +13,28 @@ type Event struct {
 	Value   interface{}
 }
 
+type ExternalEvent struct {
+	Name     string      `json:"name"`
+	Service  string      `json:"service"`
+	Hostname string      `json:"hostname"`
+	Value    interface{} `json:"value"`
+}
+
+func (e *Event) ToJson() ([]byte, error) {
+	ee := ExternalEvent{
+		Name:     e.Name,
+		Service:  e.Service.Name,
+		Hostname: Hostname,
+		Value:    e.Value,
+	}
+
+	return json.Marshal(&ee)
+}
+
 type EventDispatcher struct {
 	Registry map[*Service]map[string][]*Handler
 	Global   map[string][]*Handler
 	Actions  []Action
-	Debug    bool
 }
 
 func NewEventDispatcher(c *Config) *EventDispatcher {
@@ -28,6 +46,8 @@ func NewEventDispatcher(c *Config) *EventDispatcher {
 	ev.Actions = []Action{
 		&processAction{},
 		&emailAction{&c.Email},
+		&scriptAction{},
+		&webhookAction{},
 	}
 
 	for _, s := range c.Services {
@@ -54,9 +74,7 @@ func (e *EventDispatcher) Add(s *Service, h *Handler) {
 }
 
 func (e *EventDispatcher) Dispatch(ev *Event) error {
-	if e.Debug {
-		fmt.Printf("Dispatching event '%s' for '%s': %v\n", ev.Name, ev.Service.Name, ev.Value)
-	}
+	show("Dispatching event '%s' for '%s': %v", ev.Name, ev.Service.Name, ev.Value)
 
 	parts := strings.Split(ev.Name, "/")
 
@@ -88,16 +106,23 @@ func (e *EventDispatcher) Dispatch(ev *Event) error {
 	return nil
 }
 
+type ActionError struct {
+	Event *Event
+	Error error
+}
+
 func (e *EventDispatcher) Process(ev *Event, hs []*Handler) error {
 	for _, h := range hs {
-		if e.Debug {
-			fmt.Printf("Handling event '%s' for '%s': %v => %#v\n", ev.Name, ev.Service.Name, ev.Value, h)
-		}
+		show("Handling event '%s' for '%s': %v => %#v", ev.Name, ev.Service.Name, ev.Value, h)
 
 		for _, a := range e.Actions {
 			err := a.Run(ev, h)
 			if err != nil && err != ErrNotConfigured {
-				fmt.Fprintf(os.Stderr, "Error executing action: %s\n", err)
+				if ev.Name == "action/error" {
+					fmt.Fprint(os.Stderr, "Recursive error detected: %#v\n")
+				} else {
+					e.Dispatch(&Event{"action/error", ev.Service, &ActionError{ev, err}})
+				}
 			}
 		}
 	}

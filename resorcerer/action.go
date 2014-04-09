@@ -1,11 +1,14 @@
 package resorcerer
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/scorredoira/email"
 	"net"
+	"net/http"
 	"net/smtp"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -25,12 +28,19 @@ func (_ *processAction) Run(ev *Event, h *Handler) error {
 	case "":
 		return ErrNotConfigured
 	case "restart":
+		show("%s restart", ev.Service.Name)
+
 		if DryRun {
-			fmt.Printf("%s restart\n", ev.Service.Name)
 			return nil
-		} else {
-			return ev.Service.action.Restart()
 		}
+		return ev.Service.action.Restart()
+	case "stop":
+		show("%s stop", ev.Service.Name)
+
+		if DryRun {
+			return nil
+		}
+		return ev.Service.action.Stop()
 	default:
 		return fmt.Errorf("Undefined process action: %s", h.Process)
 	}
@@ -53,12 +63,7 @@ func (a *emailAction) Run(ev *Event, h *Handler) error {
 		template = defaultSubject
 	}
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "(unknown)"
-	}
-
-	subject := fmt.Sprintf(template, ev.Name, ev.Service.Name, hostname)
+	subject := fmt.Sprintf(template, ev.Name, ev.Service.Name, Hostname)
 	body := fmt.Sprintf(`
 Resorcerer has detected an noteworthy event.
 
@@ -68,7 +73,7 @@ Service: %s
 Event: %s
 
 Value: %v
-`, time.Now(), hostname, ev.Service.Name, ev.Name, ev.Value)
+`, time.Now(), Hostname, ev.Service.Name, ev.Name, ev.Value)
 
 	m := email.NewMessage(subject, body)
 
@@ -80,13 +85,66 @@ Value: %v
 
 	m.To = strings.Split(h.Email.Address, ",")
 
-	if DryRun {
-		fmt.Printf("Sending email:\n%s\n", string(m.Bytes()))
-		return nil
-	} else {
-		host, _, _ := net.SplitHostPort(a.settings.Server)
+	show("Sending email:\n%s", string(m.Bytes()))
 
-		auth := smtp.PlainAuth("", a.settings.Username, a.settings.Password, host)
-		return email.Send(a.settings.Server, auth, m)
+	if DryRun {
+		return nil
 	}
+
+	host, _, _ := net.SplitHostPort(a.settings.Server)
+
+	auth := smtp.PlainAuth("", a.settings.Username, a.settings.Password, host)
+	return email.Send(a.settings.Server, auth, m)
+}
+
+type scriptAction struct{}
+
+func (_ *scriptAction) Run(ev *Event, h *Handler) error {
+	script := h.Script
+	if script == "" {
+		return ErrNotConfigured
+	}
+
+	json, err := ev.ToJson()
+	if err != nil {
+		return err
+	}
+
+	show("Run '%s', passing JSON: %s", script, string(json))
+
+	if DryRun {
+		return nil
+	}
+
+	c := exec.Command("bash", "-c", script)
+	c.Stdin = bytes.NewReader(json)
+
+	if Debug {
+		c.Stdout = os.Stdout
+	}
+
+	return c.Run()
+}
+
+type webhookAction struct{}
+
+func (_ *webhookAction) Run(ev *Event, h *Handler) error {
+	url := h.WebHook
+	if url == "" {
+		return ErrNotConfigured
+	}
+
+	json, err := ev.ToJson()
+	if err != nil {
+		return err
+	}
+
+	show("POSTing to '%s', passing JSON: %s", url, string(json))
+
+	if DryRun {
+		return nil
+	}
+
+	_, err = http.Post(url, "application/json", bytes.NewReader(json))
+	return err
 }

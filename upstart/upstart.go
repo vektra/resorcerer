@@ -161,6 +161,13 @@ func (j *Job) Restart() error {
 	return c.Store(&inst)
 }
 
+func (j *Job) Stop() error {
+	wait := false
+	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Stop", 0, []string{}, wait)
+
+	return c.Store()
+}
+
 type Process struct {
 	Name string
 	Pid  int32

@@ -4,11 +4,26 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"os"
 	"strconv"
 	"strings"
 )
 
+func show(str string, args ...interface{}) {
+	if DryRun || Debug {
+		fmt.Fprintf(os.Stderr, "=> "+str+"\n", args...)
+	}
+}
+
 type MemoryAmount string
+
+var Hostname string = "(unknown)"
+
+func init() {
+	if hostname, err := os.Hostname(); err == nil {
+		Hostname = hostname
+	}
+}
 
 func (m MemoryAmount) Bytes() (int, error) {
 	s := string(m)
@@ -45,6 +60,7 @@ type Handler struct {
 
 type ServiceAction interface {
 	Restart() error
+	Stop() error
 }
 
 type Service struct {
